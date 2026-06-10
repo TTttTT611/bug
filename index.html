@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TikTok門番 v2</title>
+    <title>TikTok門番 v3</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -158,13 +158,20 @@
             letter-spacing: 1px;
         }
 
-        button:hover {
+        button:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
         }
 
-        button:active {
+        button:active:not(:disabled) {
             transform: scale(0.97);
+        }
+
+        button:disabled {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-sub);
+            cursor: not-allowed;
+            box-shadow: none;
         }
 
         .sleep-time-display {
@@ -173,6 +180,17 @@
             margin: 10px 0;
             font-family: 'Inter', sans-serif;
             text-shadow: 0 0 20px rgba(255,255,255,0.1);
+            transition: all 0.3s ease;
+        }
+
+        @keyframes pulse-warn {
+            0% { text-shadow: 0 0 10px rgba(239, 68, 68, 0.3); transform: scale(1); }
+            50% { text-shadow: 0 0 30px rgba(239, 68, 68, 0.8); transform: scale(1.05); }
+            100% { text-shadow: 0 0 10px rgba(239, 68, 68, 0.3); transform: scale(1); }
+        }
+
+        .animate-pulse {
+            animation: pulse-warn 1.5s infinite ease-in-out;
         }
 
         .sleep-good { color: var(--good); text-shadow: 0 0 20px rgba(16, 185, 129, 0.3); }
@@ -193,12 +211,11 @@
             font-size: 22px;
         }
 
-        .btn-stop:hover {
+        .btn-stop:hover:not(:disabled) {
             box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
             transform: translateY(-2px);
         }
 
-        /* それでも見るボタンは目立たなくし、意識的アクションを求める */
         .btn-continue {
             background: transparent;
             color: var(--text-sub);
@@ -209,11 +226,43 @@
             font-weight: 500;
         }
 
-        .btn-continue:hover {
+        .btn-continue:hover:not(:disabled) {
             background: rgba(255, 255, 255, 0.05);
             color: white;
             box-shadow: none;
             transform: none;
+        }
+
+        .stats-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            margin: 16px 0;
+        }
+        
+        .stat-card {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 16px 12px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .stat-value {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--primary);
+            font-family: 'Inter', sans-serif;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-sub);
+            font-weight: 600;
         }
 
         .history-container {
@@ -221,9 +270,8 @@
             justify-content: space-between;
             background: rgba(0,0,0,0.3);
             border: 1px solid var(--glass-border);
-            padding: 24px 16px;
+            padding: 20px 16px;
             border-radius: 20px;
-            margin-top: 10px;
         }
 
         .history-item {
@@ -261,6 +309,14 @@
             margin-bottom: -10px;
             font-weight: 500;
         }
+        
+        #countdown-msg {
+            color: var(--bad);
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 10px;
+            height: 20px;
+        }
 
     </style>
 </head>
@@ -271,7 +327,7 @@
         
         <!-- Screen 1: Duration & Time info -->
         <div id="screen-1" class="screen active">
-            <h1>TikTok門番 v2</h1>
+            <h1>TikTok門番 v3</h1>
             <div class="glass-panel">
                 <div class="time-now-display" id="auto-time-display">現在時刻: --:--</div>
                 <label for="input-duration">何分だけ見る予定ですか？</label>
@@ -285,7 +341,7 @@
 
         <!-- Screen 2: Wake up time -->
         <div id="screen-2" class="screen">
-            <h1>TikTok門番 v2</h1>
+            <h1>TikTok門番 v3</h1>
             <div class="glass-panel">
                 <label for="input-wakeup">明日、何時に起きますか？</label>
                 <input type="time" id="input-wakeup" required>
@@ -300,7 +356,8 @@
                 <div id="sleep-time-value" class="sleep-time-display">--:--</div>
                 <p id="sleep-comparison">計算中...</p>
             </div>
-            <button onclick="nextToChoice()">判断する</button>
+            <div id="countdown-msg"></div>
+            <button id="btn-judge" onclick="nextToChoice()">判断する</button>
         </div>
 
         <!-- Screen 4: Choice -->
@@ -316,6 +373,18 @@
         <div id="screen-5" class="screen">
             <h2 id="result-title" style="margin-bottom: 10px;"></h2>
             <p id="result-subtitle"></p>
+            
+            <div class="stats-container">
+                <div class="stat-card">
+                    <span class="stat-label">連続達成</span>
+                    <span class="stat-value" id="streak-value">0日</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">直近7日平均</span>
+                    <span class="stat-value" id="avg-sleep-value">--h --m</span>
+                </div>
+            </div>
+
             <div class="history-container" id="history-days">
                 <!-- Dynamically populated -->
             </div>
@@ -414,10 +483,19 @@
 
             const displayEl = document.getElementById('sleep-time-value');
             const comparisonEl = document.getElementById('sleep-comparison');
+            const btnJudge = document.getElementById('btn-judge');
+            const countdownMsg = document.getElementById('countdown-msg');
+            
+            displayEl.classList.remove('animate-pulse');
+            btnJudge.disabled = false;
+            countdownMsg.textContent = '';
+
+            let isBadSleep = false;
 
             if (sleepTimeInMinutes < 0) {
                 displayEl.innerHTML = '睡眠なし <span style="font-size:24px">💀</span>';
-                displayEl.className = 'sleep-time-display sleep-bad';
+                displayEl.className = 'sleep-time-display sleep-bad animate-pulse';
+                isBadSleep = true;
             } else {
                 const sleepH = Math.floor(sleepTimeInMinutes / 60);
                 const sleepM = sleepTimeInMinutes % 60;
@@ -425,12 +503,31 @@
 
                 displayEl.className = 'sleep-time-display';
                 if (sleepTimeInMinutes < 360) { // 6時間未満
-                    displayEl.classList.add('sleep-bad');
+                    displayEl.classList.add('sleep-bad', 'animate-pulse');
+                    isBadSleep = true;
                 } else if (sleepTimeInMinutes < 420) { // 7時間未満
                     displayEl.classList.add('sleep-warn');
                 } else {
                     displayEl.classList.add('sleep-good');
                 }
+            }
+
+            if (isBadSleep) {
+                // クールダウンタイマー (強制直視)
+                let timeLeft = 3;
+                btnJudge.disabled = true;
+                countdownMsg.textContent = `明日の自分を想像してください... ${timeLeft}`;
+                
+                const timer = setInterval(() => {
+                    timeLeft--;
+                    if (timeLeft <= 0) {
+                        clearInterval(timer);
+                        btnJudge.disabled = false;
+                        countdownMsg.textContent = '';
+                    } else {
+                        countdownMsg.textContent = `明日の自分を想像してください... ${timeLeft}`;
+                    }
+                }, 1000);
             }
 
             const history = getHistory();
@@ -524,11 +621,48 @@
             }
 
             const history = getHistory();
-            const historyEl = document.getElementById('history-days');
-            historyEl.innerHTML = '';
-
+            
+            // ストリークの計算
+            let currentStreak = 0;
             const today = new Date();
             today.setHours(today.getHours() - 5);
+            
+            // 履歴を日付降順（新しい順）にソート
+            const sortedHistory = [...history].sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            for (let i = 0; i < sortedHistory.length; i++) {
+                if (sortedHistory[i].choice === 'slept') {
+                    currentStreak++;
+                } else {
+                    break; // 'watched' が見つかったらストリーク終了
+                }
+            }
+            
+            document.getElementById('streak-value').textContent = `${currentStreak}日`;
+            
+            // 過去7日間の平均睡眠時間の計算
+            let weekTotalSleep = 0;
+            let weekCount = 0;
+            const last7DaysData = sortedHistory.slice(0, 7);
+            
+            last7DaysData.forEach(r => {
+                if (r.sleepTimeInMinutes !== undefined) {
+                    weekTotalSleep += r.sleepTimeInMinutes;
+                    weekCount++;
+                }
+            });
+            
+            if (weekCount > 0) {
+                const avgSleep = Math.round(weekTotalSleep / weekCount);
+                const avgH = Math.floor(avgSleep / 60);
+                const avgM = avgSleep % 60;
+                document.getElementById('avg-sleep-value').textContent = `${avgH}h ${avgM}m`;
+            } else {
+                document.getElementById('avg-sleep-value').textContent = `--h --m`;
+            }
+
+            const historyEl = document.getElementById('history-days');
+            historyEl.innerHTML = '';
 
             const daysOfWeek = ['日', '月', '火', '水', '木', '金', '土'];
 
